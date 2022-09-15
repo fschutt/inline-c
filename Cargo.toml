@@ -1,10 +1,10 @@
 [package]
-name = "inline-c"
+name = "wasmer-inline-c"
 version = "0.1.0"
 edition = "2021"
-description = "Write and execute C code inside Rust (MSVC only)"
+description = "Fork of inline-c to add support for MSVC"
 license = "BSD-3-Clause"
-authors = ["Felix Schütt <felix@wasmer.io>"]
+authors = ["Ivan Enderlin <ivan@mnt.io>"]
 repository = "https://github.com/fschutt/wasmer-inline-c-rs"
 homepage = "https://github.com/fschutt/wasmer-inline-c-rs"
 readme = "README.md"

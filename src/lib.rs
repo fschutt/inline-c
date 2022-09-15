@@ -43,18 +43,17 @@ pub mod assert {
             }
         }
     }
-
 }
 
 pub mod run {
 
+    use crate::Assert;
     use lazy_static::lazy_static;
     use regex::Regex;
     use std::{
         borrow::Cow, collections::HashMap, env, error::Error, ffi::OsString, io::prelude::*,
         path::PathBuf, process::Command,
     };
-    use crate::Assert;
 
     static INCLUDE_REGEX: &str = "#include \"(.*)\"";
 
@@ -63,7 +62,7 @@ pub mod run {
         C,
         Cxx,
     }
-    
+
     impl ToString for Language {
         fn to_string(&self) -> String {
             match self {
@@ -72,15 +71,15 @@ pub mod run {
             }
         }
     }
-    
+
     #[doc(hidden)]
     pub fn run(language: Language, program: &str) -> Result<Assert, Box<dyn Error>> {
         let (program, variables) = collect_environment_variables(program);
-    
+
         let mut program_file = tempfile::Builder::new()
-        .prefix("inline-c-rs-")
-        .suffix(&format!(".{}", language.to_string()))
-        .tempfile()?;
+            .prefix("inline-c-rs-")
+            .suffix(&format!(".{}", language.to_string()))
+            .tempfile()?;
 
         program_file.write_all(program.as_bytes())?;
 
@@ -98,7 +97,7 @@ pub mod run {
         output_temp.suffix(".exe");
 
         let (_, output_path) = output_temp.tempfile()?.keep()?;
-            
+
         let mut build = cc::Build::new();
         let mut build = build
             .cargo_metadata(false)
@@ -121,25 +120,40 @@ pub mod run {
 
         // MSVC cannot follow symlinks for some reason
         let mut log = String::new();
-        let include_paths = cflags.iter().filter(|s| s.starts_with("-I")).cloned().collect::<Vec<_>>();
+        let include_paths = cflags
+            .iter()
+            .filter(|s| s.starts_with("-I"))
+            .cloned()
+            .collect::<Vec<_>>();
         fixup_symlinks(include_paths.as_ref(), &mut log)?;
 
         let regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
-        let filepaths = regex.captures_iter(&program).map(|c| c[1].to_string()).collect::<Vec<_>>();
+        let filepaths = regex
+            .captures_iter(&program)
+            .map(|c| c[1].to_string())
+            .collect::<Vec<_>>();
         log.push_str(&format!("regex captures (program): {:#?}\n", filepaths));
-        let joined_filepaths = filepaths.iter().filter_map(|s| {
-            let path = std::path::Path::new(&include_paths.first().unwrap().replacen("-I", "", 1)).join(s);
-            Some(format!("{}", path.display()))
-        }).collect::<Vec<_>>();
+        let joined_filepaths = filepaths
+            .iter()
+            .filter_map(|s| {
+                let path =
+                    std::path::Path::new(&include_paths.first().unwrap().replacen("-I", "", 1))
+                        .join(s);
+                Some(format!("{}", path.display()))
+            })
+            .collect::<Vec<_>>();
         fixup_symlinks_inner(&joined_filepaths, &mut log)?;
 
-        let cppflags = get_env_flags(&variables,"CPPFLAGS");
-        let cxxflags = get_env_flags(&variables,"CXXFLAGS");
-        let ldflags = get_env_flags(&variables,"LDFLAGS"); 
+        let cppflags = get_env_flags(&variables, "CPPFLAGS");
+        let cxxflags = get_env_flags(&variables, "CXXFLAGS");
+        let ldflags = get_env_flags(&variables, "LDFLAGS");
 
         command.args(cflags);
 
-        let link_path = ldflags.get(0).expect("no link path for .dll").replace("-rpath,", "");
+        let link_path = ldflags
+            .get(0)
+            .expect("no link path for .dll")
+            .replace("-rpath,", "");
         let mut dll_path = ldflags.get(1).expect("no .dll").clone();
         if dll_path.ends_with(".dll") {
             dll_path = format!("{}.lib", dll_path);
@@ -151,7 +165,7 @@ pub mod run {
         command.arg(format!("/LIBPATH:{}", link_path));
 
         command.envs(variables.clone());
- 
+
         let mut files_to_remove = vec![input_path, output_path.clone()];
 
         let mut intermediate_path = output_path.clone();
@@ -161,19 +175,21 @@ pub mod run {
 
         Ok(Assert::new(command, Some(files_to_remove)))
     }
-    
-    fn collect_environment_variables<'p>(program: &'p str) -> (Cow<'p, str>, HashMap<String, String>) {
+
+    fn collect_environment_variables<'p>(
+        program: &'p str,
+    ) -> (Cow<'p, str>, HashMap<String, String>) {
         const ENV_VAR_PREFIX: &str = "INLINE_C_RS_";
-    
+
         lazy_static! {
             static ref REGEX: Regex = Regex::new(
                 r#"#inline_c_rs (?P<variable_name>[^:]+):\s*"(?P<variable_value>[^"]+)"\r?\n"#
             )
             .unwrap();
         }
-    
+
         let mut variables = HashMap::new();
-    
+
         for (variable_name, variable_value) in env::vars().filter_map(|(mut name, value)| {
             if name.starts_with(ENV_VAR_PREFIX) {
                 Some((name.split_off(ENV_VAR_PREFIX.len()), value))
@@ -183,29 +199,34 @@ pub mod run {
         }) {
             variables.insert(variable_name, variable_value);
         }
-    
+
         for captures in REGEX.captures_iter(program) {
             variables.insert(
                 captures["variable_name"].trim().to_string(),
                 captures["variable_value"].to_string(),
             );
         }
-    
+
         let program = REGEX.replace_all(program, "");
-    
+
         (program, variables)
     }
-    
+
     // This is copy-pasted and edited from `cc-rs`.
-    fn command_add_output_file(command: &mut Command, output_path: &PathBuf, msvc: bool, clang: bool) {
+    fn command_add_output_file(
+        command: &mut Command,
+        output_path: &PathBuf,
+        msvc: bool,
+        clang: bool,
+    ) {
         if msvc && !clang {
             let mut intermediate_path = output_path.clone();
             intermediate_path.set_extension("obj");
-    
+
             let mut fo_arg = OsString::from("-Fo");
             fo_arg.push(intermediate_path);
             command.arg(fo_arg);
-    
+
             let mut fe_arg = OsString::from("-Fe");
             fe_arg.push(output_path);
             command.arg(fe_arg);
@@ -225,7 +246,7 @@ pub mod run {
             .collect()
     }
 
-    fn fixup_symlinks(include_paths: &[String],log: &mut String) -> Result<(), Box<dyn Error>> {
+    fn fixup_symlinks(include_paths: &[String], log: &mut String) -> Result<(), Box<dyn Error>> {
         log.push_str(&format!("include paths: {include_paths:?}"));
         for i in include_paths {
             let i = i.replacen("-I", "", 1);
@@ -244,7 +265,10 @@ pub mod run {
         Ok(())
     }
 
-    fn fixup_symlinks_inner(include_paths: &[String],log: &mut String)-> Result<(), Box<dyn Error>> {
+    fn fixup_symlinks_inner(
+        include_paths: &[String],
+        log: &mut String,
+    ) -> Result<(), Box<dyn Error>> {
         log.push_str(&format!("fixup symlinks: {include_paths:#?}"));
         let regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
         for path in include_paths.iter() {
@@ -257,19 +281,24 @@ pub mod run {
                 log.push_str(&format!("symlinking {path:?}\n"));
                 std::fs::write(&path, symlink)?;
             }
-    
+
             // follow #include directives and recurse
-            let filepaths = regex.captures_iter(&file).map(|c| c[1].to_string()).collect::<Vec<_>>();
+            let filepaths = regex
+                .captures_iter(&file)
+                .map(|c| c[1].to_string())
+                .collect::<Vec<_>>();
             log.push_str(&format!("regex captures: ({path:?}): {:#?}\n", filepaths));
-            let joined_filepaths = filepaths.iter().filter_map(|s| {
-                let path = parent.clone().join(s);
-                Some(format!("{}", path.display()))
-            }).collect::<Vec<_>>();
+            let joined_filepaths = filepaths
+                .iter()
+                .filter_map(|s| {
+                    let path = parent.clone().join(s);
+                    Some(format!("{}", path.display()))
+                })
+                .collect::<Vec<_>>();
             fixup_symlinks_inner(&joined_filepaths, log)?;
         }
         Ok(())
     }
-
 }
 
 pub use crate::run::{run, Language};
