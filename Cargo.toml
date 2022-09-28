@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-inline-c"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Fork of inline-c to add support for MSVC"
 license = "BSD-3-Clause"
