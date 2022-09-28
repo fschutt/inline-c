@@ -303,7 +303,7 @@ pub mod run {
 
 pub use crate::run::{run, Language};
 pub use assert::Assert;
-pub use inline_c_macro::{assert_c, assert_cxx};
+pub use wasmer_inline_c_macro::{assert_c, assert_cxx};
 pub mod predicates {
     pub use predicates::prelude::*;
 }

@@ -4,27 +4,27 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 /// Execute a C program and return a `Result` of
-/// `inline_c::Assert`. See examples inside the `inline-c` crate.
+/// `wasmer_inline_c::Assert`. See examples inside the `inline-c` crate.
 #[proc_macro]
 pub fn assert_c(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = TokenStream::from(input);
     let input_as_string = reconstruct(input);
 
     quote!(
-        inline_c::run(inline_c::Language::C, #input_as_string).map_err(|e| panic!("{}", e)).unwrap()
+        wasmer_inline_c::run(wasmer_inline_c::Language::C, #input_as_string).map_err(|e| panic!("{}", e)).unwrap()
     )
     .into()
 }
 
 /// Execute a C++ program and return a `Result` of
-/// `inline_c::Assert`. See examples inside the `inline-c` crate.
+/// `wasmer_inline_c::Assert`. See examples inside the `inline-c` crate.
 #[proc_macro]
 pub fn assert_cxx(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = TokenStream::from(input);
     let input_as_string = reconstruct(input);
 
     quote!(
-        inline_c::run(inline_c::Language::Cxx, #input_as_string).map_err(|e| panic!("{}", e)).unwrap()
+        wasmer_inline_c::run(wasmer_inline_c::Language::Cxx, #input_as_string).map_err(|e| panic!("{}", e)).unwrap()
     )
     .into()
 }
